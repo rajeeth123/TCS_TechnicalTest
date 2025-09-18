@@ -1,3 +1,9 @@
+using TCSTest.Interface;
+using TCSTest.Models;
+using TCSTest.Repositories;
+using TCSTest.Services;
+using TCSTest.Middleware;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -7,7 +13,30 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// register repositories - each uses a separate json file
+builder.Services.AddSingleton<JsonFileLockProvider>();
+builder.Services.AddSingleton<IRepository<ContentItem>, ContentRepository>(sp =>
+{
+    var env = sp.GetRequiredService<IHostEnvironment>();
+    var dataFolder = Path.Combine(env.ContentRootPath, "Json Store");
+    return new ContentRepository(Path.Combine(dataFolder, "content_catalog.json"), sp.GetRequiredService<JsonFileLockProvider>());
+});
+builder.Services.AddScoped<IRepository<Channel>, ChannelRepository>(sp =>
+{
+    var env = sp.GetRequiredService<IHostEnvironment>();
+    var dataFolder = Path.Combine(env.ContentRootPath, "Json Store");
+    return new ChannelRepository(Path.Combine(dataFolder, "channels.json"), sp.GetRequiredService<JsonFileLockProvider>());
+});
+
+// services
+builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
+
 var app = builder.Build();
+
+// use centralized error handling
+app.UseApiErrorHandling();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
